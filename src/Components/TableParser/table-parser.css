@@ -1,0 +1,44 @@
+.table-pareser {
+  min-height: 100vh;
+  height: 1px;
+  background-color: aliceblue;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+}
+
+.table-parser-container {
+  width: 100%;
+  max-width: 900px;
+  background-color: #fff;
+  display: flex;
+  flex-direction: column;
+  margin: 20px;
+  padding: 10px;
+  margin-bottom: auto;
+}
+
+.table-parser-header {
+  display: flex;
+  justify-content: center;
+  text-align: center;
+}
+
+.table-parser-action-tooltip {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-evenly;
+  align-items: center;
+}
+
+.table-parser-button {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly!important;
+  background-color: #e0e0e0!important;
+}
+
+.table-parser-button-icon {
+  font-size: 20px;
+  margin: 5px 10px 5px 5px;
+}

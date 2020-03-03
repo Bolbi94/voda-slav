@@ -1,0 +1,37 @@
+.counter {
+  height: 100px;
+  display: flex;
+  flex-direction: row;
+  margin: 0 10px 30px 10px;
+}
+
+.counter-image {
+  width: 150px;
+  height: 100px;
+  padding: 0 5px;
+}
+
+.counter-description {
+  width: 300px;
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  padding: 0 5px;
+  background-color: #fff;
+}
+
+.counter-description-row {
+  display: flex;
+  flex-direction: row;
+}
+
+.counter-description-row-title {
+  width: 200px;
+}
+
+.counter-description-row-value {
+  width: 100px;
+  font-weight: bold;
+  text-align: center;
+}

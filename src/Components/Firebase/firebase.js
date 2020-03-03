@@ -2,13 +2,22 @@ import app from 'firebase/app';
 import 'firebase/auth';
 
 const config = {
-  apiKey: "AIzaSyBmHWRpc7qgkSCoNLWEACa75WBMsGf4y0Q",
-  authDomain: "stefi-isabella.firebaseapp.com",
-  databaseURL: "https://stefi-isabella.firebaseio.com",
-  projectId: "stefi-isabella",
-  storageBucket: "stefi-isabella.appspot.com",
-  messagingSenderId: "462372706903",
-  appId: "1:462372706903:web:e14747079a00eff1"
+  apiKey: "AIzaSyBrbNMXwOrljm_EJyxWWY8Fx_2YQdkeqto",
+  authDomain: "voda-slav.firebaseapp.com",
+  databaseURL: "https://voda-slav.firebaseio.com",
+  projectId: "voda-slav",
+  storageBucket: "voda-slav.appspot.com",
+  messagingSenderId: "447205832578",
+  appId: "1:447205832578:web:69b11a649da4662d86c19b",
+
+  clientId: "447205832578-qa26mmfh3lmvokcosq4mlmh42oepitmk.apps.googleusercontent.com",
+
+  scopes: [
+    "https://www.googleapis.com/auth/gmail.readonly"
+  ],
+  discoveryDocs: [
+    "https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest"
+  ]
 }
 
 export default class Firebase {
@@ -32,4 +41,10 @@ export default class Firebase {
 
   passwordUpdate = (password) => 
     this.auth.currentUser.updatePassword(password);
+
+  auth = () =>
+    this.auth;
+
+  getGoogleProviderID = () =>
+    app.auth.GoogleAuthProvider.PROVIDER_ID;
 }
