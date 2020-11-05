@@ -7,6 +7,7 @@ import SignIn from './Components/Authentification/sign-in';
 import SignUp from './Components/Authentification/sign-up';
 import TableParser from './Components/TableParser/table-parser';
 import Export from './Components/Export/export';
+import Home from './Components/Main/home';
 
 import './app.css';
 
@@ -22,6 +23,7 @@ export default class App extends React.Component {
       <Router>
         <React.Fragment>
           <Route exact path = {ROUTES.MAIN} component = {withRouter(withFirebase(Main))} />
+          <Route path = {ROUTES.HOME} component = {withRouter(withFirebase(Home))} />
           <Route path = {ROUTES.SIGN_IN} component = {withRouter(withFirebase(SignIn))} />
           <Route path = {ROUTES.SIGN_UP} component = {withRouter(withFirebase(SignUp))} />
           <Route path = {ROUTES.TABLE_PARSER} component = {withRouter(withFirebase(TableParser))} />

@@ -54,7 +54,7 @@ export default class Export extends React.Component {
   render() {
     return(
       <div>
-        <div>
+        {/* <div>
           <TextField value = "Export Accruals Table" />
           <Input type = "file" onChange = {e => this.exportFile(e)} name = "Accruals" />
         </div>
@@ -65,7 +65,7 @@ export default class Export extends React.Component {
         <div>
           <TextField value = "Export Counters Table" />
           <Input type = "file" onChange = {e => this.exportFile(e)} name = "Counters" />
-        </div>
+        </div> */}
       </div>
     )
   }

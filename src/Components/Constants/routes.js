@@ -5,3 +5,4 @@ export const ACCOUNT = '/account';
 export const ADMIN = '/admin';
 export const TABLE_PARSER = '/table-parser';
 export const EXPORT = '/export';
+export const HOME = '/home';

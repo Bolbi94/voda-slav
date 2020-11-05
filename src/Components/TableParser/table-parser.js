@@ -15,8 +15,14 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileExcel } from '@fortawesome/free-solid-svg-icons';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
 import './table-parser.css';
+import 'core-js/features/promise';
 
 const API_KEY = "AIzaSyBrbNMXwOrljm_EJyxWWY8Fx_2YQdkeqto";
+
+const CounterReadingsMails = [
+  "mobile.user.office@gmail.com", // domovichek
+  "y.klinkoff@gmail.com", //yura klinkov
+];
 
 export default class TableParser extends React.Component {
   constructor(props) {
@@ -92,49 +98,215 @@ export default class TableParser extends React.Component {
   }
 
   getMessages = () => {
-    // console.log("date from:", this.state.dateFrom);
-    // console.log("date to", this.state.dateTo);
-    // console.log("q", `in:inbox after:${getUnixTime(this.state.dateFrom)} before:${getUnixTime(this.state.dateTo)}`);
-    window.gapi.client.gmail.users.messages.list({
-      "userId": "me",
-      "includeSpamTrash": false,
-      "q": `in:inbox after:${getUnixTime(this.state.dateFrom)} before:${getUnixTime(this.state.dateTo)}`,
-      "maxResults": 500
-    }).then(response => {
-      //console.log("response", response);
-      let messages = response.result.messages;
+    let messages = [];
+    let query = {
+      userId: "me",
+      q: `{from:${CounterReadingsMails.join(" from:")}} after:${getUnixTime(this.state.dateFrom)} before:${getUnixTime(this.state.dateTo)}`, // it is also possible to use date format like YYYY/MM/DD
+    };
+    let getMessagesList = (callback) => {
+      let retrievePageOfMails = (request, result) => {
+        request.execute(resp => {
+          result = result.concat(resp.result.messages);
+          let nextPageToken = resp.nextPageToken;
+          if(nextPageToken) {
+            request = window.gapi.client.gmail.users.messages.list({
+              ...query,
+              pageToken: nextPageToken,
+            });
+            retrievePageOfMails(request, result);
+          } else {
+            callback(result);
+          }
+        });
+      };
+      let initialRequest = window.gapi.client.gmail.users.messages.list({...query});
+      retrievePageOfMails(initialRequest, []);
+    };
+    let collectMessagesData = (messagesList) => {
       let readings = [];
       let messagesCounter = 0;
-      messages.forEach(messageIDs => {
-        let id = messageIDs.id;
-        //console.log("mess id", id);
+      messagesList.forEach(message => {
         window.gapi.client.gmail.users.messages.get({
-          "userId": "me",
-          "id": id
+          userId: "me",
+          id: message.id,
         }).then(response => {
           ++messagesCounter;
-          //console.log("mess response", response);
           let messageBody = response.result.payload.body.data;
           if(messageBody) {
-            messageBody = base64url.decode(messageBody);
-            //console.log("mess body", messageBody);
-            if(messageBody.indexOf("##") > -1) {
-              let jsonString = messageBody.substring(messageBody.indexOf("##") + 2);
+            let encodedMessage = base64url.decode(messageBody);
+            messages.push(encodedMessage);
+            let reading;
+            if(encodedMessage.indexOf("##") > -1) {
+              let jsonString = encodedMessage.substring(encodedMessage.indexOf("##") + 2);
               //console.log("jsonString", jsonString);
               let jsonObj = JSON.parse(jsonString);
               //console.log("jsonObj", jsonObj);
-              let reading = this.convertDomovichekMessageObjToReading(jsonObj);
+              reading = this.convertDomovichekMessageObjToReading(jsonObj);
               //console.log("reading", reading);
+              readings.push(reading);
+            } else {
+              // console.log("message do", encodedMessage);
+              reading = this.parseKlinkoffMessage(encodedMessage);
+              // console.log("message posle", reading);
               readings.push(reading);
             }
           }
-          if(messagesCounter === messages.length) {
+          if(messagesCounter === messagesList.length) {
+            // console.log("-- messages list ---", messages);
+            // console.log("-- readings list ---", readings);
             this.exportToExcel(readings);
           }
         })
-      });
-    })
+      })
+    }
+
+    getMessagesList(collectMessagesData);
+
+    // console.log("date from:", this.state.dateFrom);
+    // console.log("date to", this.state.dateTo);
+    // console.log("q", `in:inbox after:${getUnixTime(this.state.dateFrom)} before:${getUnixTime(this.state.dateTo)}`);
+    // window.gapi.client.gmail.users.messages.list({
+    //   "userId": "me",
+    //   "includeSpamTrash": false,
+    //   "q": `{from:${CounterReadingsMails.join(" from:")}} after:${getUnixTime(this.state.dateFrom)} before:${getUnixTime(this.state.dateTo)}`, // it is also possible to use date format like YYYY/MM/DD
+    // }).then(response => {
+    //   //console.log("response", response);
+    //   let messages = response.result.messages;
+    //   let readings = [];
+    //   let messagesCounter = 0;
+    //   messages.forEach(messageIDs => {
+    //     let id = messageIDs.id;
+    //     //console.log("mess id", id);
+    //     window.gapi.client.gmail.users.messages.get({
+    //       "userId": "me",
+    //       "id": id
+    //     }).then(response => {
+    //       ++messagesCounter;
+    //       //console.log("mess response", response);
+    //       let messageBody = response.result.payload.body.data;
+    //       if(messageBody) {
+    //         messageBody = base64url.decode(messageBody);
+    //         //console.log("mess body", messageBody);
+    //         if(messageBody.indexOf("##") > -1) {
+    //           let jsonString = messageBody.substring(messageBody.indexOf("##") + 2);
+    //           //console.log("jsonString", jsonString);
+    //           let jsonObj = JSON.parse(jsonString);
+    //           //console.log("jsonObj", jsonObj);
+    //           let reading = this.convertDomovichekMessageObjToReading(jsonObj);
+    //           //console.log("reading", reading);
+    //           readings.push(reading);
+    //         }
+    //       }
+    //       if(messagesCounter === messages.length) {
+    //         this.exportToExcel(readings);
+    //       }
+    //     })
+    //   });
+    // })
   }
+
+  parseKlinkoffMessage = (message) => {
+    const domovichekKlinkoffDictionary = {
+      "Прізвище та ім'я": "Sender",
+      "Особовий рахунок": "AccountID",
+      "Дата заповнення форми": "Sent",
+      "За який місяць": "Month",
+      "Номер телефону": "Phone",
+      "Кухня (холодна)": "KitchenColdValue",
+      "Кухня (гаряча)": "KitchenHotValue",
+      "Туалет (холодна)": "ToiletColdValue",
+      "Туалет (гаряча)": "ToiletHotValue",
+      "Ванна (холодна)": "BathColdValue",
+      "Ванна (гаряча)": "BathHotValue",
+      "Полив": "Watering",
+    }
+    
+    let parceTable = (tableLayout) => {
+      let headerArr = [], valueArr = [];
+      let HeaderTagOpen = `<dt style="background-color: #eeeeee; padding: 4px; font-weight: bold;">`, HeaderTagClose = `</dt>`;
+      let ValueTagOpen = `<dd style="margin: 4px 4px 16px 4px;">`, ValueTagClose = `</dd>`;
+      let i = 0, j = 0, iterationLimit = 20;
+      while(tableLayout.indexOf(HeaderTagOpen, i) > -1) {
+        i = tableLayout.indexOf(HeaderTagOpen, i) + HeaderTagOpen.length;
+        j = tableLayout.indexOf(HeaderTagClose, i);
+        headerArr.push(tableLayout.slice(i, j));
+        if(--iterationLimit < 1)
+          break;
+      };
+      i = 0; j = 0; iterationLimit = 20;
+      while(tableLayout.indexOf(ValueTagOpen, i) > -1) {
+        i = tableLayout.indexOf(ValueTagOpen, i) + ValueTagOpen.length;
+        j = tableLayout.indexOf(ValueTagClose, i);
+        valueArr.push(tableLayout.slice(i, j));
+        if(--iterationLimit < 1)
+          break;
+      }
+
+      let reading = {}
+
+      headerArr.forEach((header, i) => {
+        let key = domovichekKlinkoffDictionary[header];
+        if(key)
+          reading[key] = valueArr[i];
+      });
+      // console.log("arrays", headerArr, headerArr);
+      // console.log("reading1", reading);
+      // console.log("message1", message);
+
+      return reading;
+    }
+
+    let tableLayout = message.substring(message.indexOf("<dl>"), message.indexOf("</dl>"));
+    // return parceTable(tableLayout);
+    let reading = parceTable(tableLayout);
+    // console.log("reading2", reading);
+    // console.log("message2", message);
+    return reading;
+  }
+
+  // getMessages = () => {
+  //   // console.log("date from:", this.state.dateFrom);
+  //   // console.log("date to", this.state.dateTo);
+  //   // console.log("q", `in:inbox after:${getUnixTime(this.state.dateFrom)} before:${getUnixTime(this.state.dateTo)}`);
+  //   window.gapi.client.gmail.users.messages.list({
+  //     "userId": "me",
+  //     "includeSpamTrash": false,
+  //     "q": `{from:${CounterReadingsMails.join(" from:")}} after:${getUnixTime(this.state.dateFrom)} before:${getUnixTime(this.state.dateTo)}`, // it is also possible to use date format like YYYY/MM/DD
+  //   }).then(response => {
+  //     //console.log("response", response);
+  //     let messages = response.result.messages;
+  //     let readings = [];
+  //     let messagesCounter = 0;
+  //     messages.forEach(messageIDs => {
+  //       let id = messageIDs.id;
+  //       //console.log("mess id", id);
+  //       window.gapi.client.gmail.users.messages.get({
+  //         "userId": "me",
+  //         "id": id
+  //       }).then(response => {
+  //         ++messagesCounter;
+  //         //console.log("mess response", response);
+  //         let messageBody = response.result.payload.body.data;
+  //         if(messageBody) {
+  //           messageBody = base64url.decode(messageBody);
+  //           //console.log("mess body", messageBody);
+  //           if(messageBody.indexOf("##") > -1) {
+  //             let jsonString = messageBody.substring(messageBody.indexOf("##") + 2);
+  //             //console.log("jsonString", jsonString);
+  //             let jsonObj = JSON.parse(jsonString);
+  //             //console.log("jsonObj", jsonObj);
+  //             let reading = this.convertDomovichekMessageObjToReading(jsonObj);
+  //             //console.log("reading", reading);
+  //             readings.push(reading);
+  //           }
+  //         }
+  //         if(messagesCounter === messages.length) {
+  //           this.exportToExcel(readings);
+  //         }
+  //       })
+  //     });
+  //   })
+  // }
 
   convertDomovichekMessageObjToReading = (jsonObj) => {
     let reading = {

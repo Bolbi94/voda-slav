@@ -1,0 +1,98 @@
+.home {
+    width: 984px;
+    height: auto;
+    padding: 0 20px;
+  }
+  
+  .home-grid {
+    display: flex;
+    flex-direction: row;
+  }
+  
+  .home-block-paper {
+    height: 250px;
+    width: 300px
+  }
+  
+  .home-block-paper-title {
+    height: 50px;
+    width: auto;
+    border: 0 solid black;
+    border-bottom-width: 1px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+  }
+  
+  .home-block-paper-body {
+    height: 179px;
+    margin: 0 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+  }
+  
+  .home-block-paper-body-top, .home-block-paper-body-bottom {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+  }
+  
+  .home-block-paper-body-line {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+  }
+  
+  .home-block-paper-body-line-color-blue {
+    width: 8px;
+    height: 8px;
+    background-color: blue;
+    border-radius: 4px;
+    margin: 5px;
+  }
+  
+  .home-block-paper-body-line-color-red {
+    width: 8px;
+    height: 8px;
+    background-color: red;
+    border-radius: 4px;
+    margin: 5px;
+  }
+  
+  .home-block-paper-body-line-value {
+    font-weight: bold;
+    margin: 5px;
+  }
+  
+  .home-block-paper-body-line-text {
+    margin: 5px;
+  }
+  
+  .home-block-paper-body-line-counter {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+  
+  .home-block-paper-title-counter {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+  
+  .home-block-paper-title-icon-blue {
+    color: blue;
+    padding: 10px;
+  }
+  .home-block-paper-title-icon-red {
+    color: red;
+    padding: 10px;
+  }
+  
+  .home-block-paper-body-counter-input > div > input {
+    text-align: end!important;
+  }

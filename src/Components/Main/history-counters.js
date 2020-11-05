@@ -17,6 +17,7 @@ import IconButton from '@material-ui/core/IconButton';
 import Tooltip from '@material-ui/core/Tooltip';
 import FilterListIcon from '@material-ui/icons/FilterList';
 import { classes } from 'istanbul-lib-coverage';
+import './history-counters.css';
 
 const useStyles = makeStyles({
   table: {
@@ -26,8 +27,10 @@ const useStyles = makeStyles({
     fontWeight: 'bold'
   },
   container: {
-    minHeight: '100%',
-    height: '1px'
+    // minHeight: '100%',
+    // height: '1px'
+    height: '100%',
+    minHeight: '100%'
   }
 });
 
@@ -96,7 +99,7 @@ export default function HistoryCounters() {
   }
 
   return (
-    <div className = "main-history-pay">
+    <div className = "main-history-counters">
       <TableContainer component={Paper} className = {classes.container}>
         <Table stickyHeader  className={classes.table} aria-label="history of paymant">
           <Head 
