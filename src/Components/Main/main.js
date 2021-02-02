@@ -11,6 +11,7 @@ import Tabs from '@material-ui/core/Tabs';
 import Tab from '@material-ui/core/Tab';
 import Home from '@material-ui/icons/Home';
 import ExitToAppIcon from '@material-ui/icons/ExitToApp';
+import HomePageUnauthorized from './HomeUnauthorized/home-unauthorized';
 
 import './main.css';
 
@@ -28,12 +29,66 @@ export default class Main extends React.Component {
     super(props);
 
     this.state = {
-      activeTab: 0
+      activeTab: 0,
+
+      
+      account: undefined, 
+      accountName: undefined,
+      accountAddress: undefined,
+      accountCounters: [],
+      accountAccruals: undefined
     }
   }
 
-  // componentDidMount() {
-  //   XLSXInterface.ReadXLSX();
+  setTestAccount = () => {
+    this.setState({
+      account: "1110030010",
+      accountName: {
+        Surname: "ДУШЕНОК",
+        Name: "МАРИНА",
+        FName: "ВЛАДИМИРОВНА",
+      },
+      accountAddress: {
+        Street: "ТАЛЛIНСЬКИЙ",
+        House: "3",
+        Flat: "10",
+      },
+      accountCounters: [
+        {
+          type: "BathCold",
+          ID: "280335",
+          LastReading: "301",
+          LastReadingsDate: "5November2020",
+          LastReadingsMonthFor: "Жовтень",
+          Name: "ХВС Ванна"
+        },
+        {
+          type: "BathHot",
+          ID: "51774",
+          LastReading: "104",
+          LastReadingsDate: "5November2020",
+          LastReadingsMonthFor: "Жовтень",
+          Name: "ГВС Ванна"
+        }
+      ],
+      accountAccruals: {
+        Accrued: "278.88",
+        Debt: "278.88",
+        Paid: "0.00"
+      }
+    })
+  }
+
+  componentDidMount() {
+    // this.setTestAccount();
+    // TODO
+    // this.getAccountDetails()
+  }
+  // TODO
+  // account value shoud come from props
+  // account uses for fetching data from firestore and fill other account onfo
+  // getAccountDetails = () => {
+
   // }
 
   renderTabPage = () => {
@@ -52,10 +107,9 @@ export default class Main extends React.Component {
 
   render() {
     return(
+      this.state.account ?
       <div className = "main">
          <Header />
-         {/* <input type = 'file' onChange = { e => XLSXInterface.ReadXLSX(e.target.files[0])}></input>
-         <XLSXInterface.WriteXLS /> */}
          <div className = "main-tabs">
           <Tabs indicatorColor = "primary" textColor = "primary" value = {this.state.activeTab} onChange = {(e, newValue) => this.setState({activeTab: newValue})}>
             <Tab icon = {<Home />} />
@@ -72,6 +126,13 @@ export default class Main extends React.Component {
              this.renderTabPage()
            }
          </div>
+      </div>
+      :
+      <div className = "main">
+        <Header />
+        <div className = "main-tab-page">
+          <HomePageUnauthorized firebase = {this.props.firebase} />
+        </div>
       </div>
     )
   }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, withRouter } from 'react-router-dom';
 import * as ROUTES from './Components/Constants/routes';
+import * as RESOLUTIONS from './Components/Constants/screen-resolutions';
 import { FirebaseContext, withFirebase } from './Components/Firebase';
 import Main from './Components/Main/main';
 import SignIn from './Components/Authentification/sign-in';

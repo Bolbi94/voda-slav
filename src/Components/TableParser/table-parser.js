@@ -39,66 +39,56 @@ export default class TableParser extends React.Component {
   }
 
   componentDidMount() {
-    this.initGapi();
-    // this.unregisterAuthObserver = this.props.firebase.auth.onAuthStateChanged(
-    //   user => {
-    //     console.log("user", user);
-    //     this.setState({
-    //       isSignedIn: !!user,
-    //       user
-    //     });
-    //     if(this.state.user && this.state.user.email === "watercounters@gmail.com") {
-    //       this.initGapi();
-    //     }
-    //   }
-    // );
+    // this.initGapi();
+    window.gapi.load('client', this.initGapi);
   }
+
+  // initGapi = () => {const script = document.createElement("script");
+  //   script.onload = () => {
+  //     // Gapi isn't available immediately so we have to wait until it is to use gapi.
+  //     this.loadClientWhenGapiReady(script);
+  //   };
+  //   script.src = "https://apis.google.com/js/client.js";
+    
+  //   document.body.appendChild(script);
+  // }
+
+  // loadClientWhenGapiReady = (script) => {
+  //   if(script.getAttribute('gapi_processed')){
+  //     window.gapi.client.init({
+  //       apiKey: API_KEY,
+  //       clientId: "447205832578-qa26mmfh3lmvokcosq4mlmh42oepitmk.apps.googleusercontent.com",
+  //       discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest"],
+  //       scope: "https://www.googleapis.com/auth/gmail.readonly"
+  //     }).then(() => {
+  //       this.setState({
+  //         isGapiReady: true
+  //       })
+  //       this.handleSignIn();
+  //     })
+  //   }
+  //   else{
+  //     setTimeout(() => {
+  //       this.loadClientWhenGapiReady(script)
+  //     }, 100);
+  //   }
+  // }
 
   initGapi = () => {
-    //console.log('Initializing GAPI...');
-    //console.log('Creating the google script tag...');
-
-    const script = document.createElement("script");
-    script.onload = () => {
-      //console.log('Loaded script, now loading our api...')
-      // Gapi isn't available immediately so we have to wait until it is to use gapi.
-      this.loadClientWhenGapiReady(script);
-    };
-    script.src = "https://apis.google.com/js/client.js";
-    
-    document.body.appendChild(script);
-  }
-
-  loadClientWhenGapiReady = (script) => {
-    //console.log('Trying To Load Client!');
-    //console.log(script)
-    if(script.getAttribute('gapi_processed')){
-      //console.log('Client is ready! Now you can access gapi. :)');
-      // window.gapi.client.setApiKey(API_KEY);
-
-      // window.gapi.client.load('gmail', 'v1', (data) => {
-      //   console.log('load gapi', data);
-      // })
-      window.gapi.client.init({
-        apiKey: API_KEY,
-        clientId: "447205832578-qa26mmfh3lmvokcosq4mlmh42oepitmk.apps.googleusercontent.com",
-        discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest"],
-        scope: "https://www.googleapis.com/auth/gmail.readonly"
-      }).then(() => {
-        this.setState({
-          isGapiReady: true
-        })
-        this.handleSignIn();
+    window.gapi.client.init({
+      apiKey: API_KEY,
+      clientId: "447205832578-qa26mmfh3lmvokcosq4mlmh42oepitmk.apps.googleusercontent.com",
+      discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest"],
+      scope: "https://www.googleapis.com/auth/gmail.readonly"
+    }).then(() => {
+      this.setState({
+        isGapiReady: true
       })
-    }
-    else{
-      //console.log('Client wasn\'t ready, trying again in 100ms');
-      setTimeout(() => {this.loadClientWhenGapiReady(script)}, 100);
-    }
+      this.handleSignIn();
+    })
   }
 
   getMessages = () => {
-    let messages = [];
     let query = {
       userId: "me",
       q: `{from:${CounterReadingsMails.join(" from:")}} after:${getUnixTime(this.state.dateFrom)} before:${getUnixTime(this.state.dateTo)}`, // it is also possible to use date format like YYYY/MM/DD
@@ -123,86 +113,155 @@ export default class TableParser extends React.Component {
       retrievePageOfMails(initialRequest, []);
     };
     let collectMessagesData = (messagesList) => {
+      console.log("collectMessagesData() start", messagesList);
       let readings = [];
+      let failedMessagesIds = [];
       let messagesCounter = 0;
-      messagesList.forEach(message => {
-        window.gapi.client.gmail.users.messages.get({
-          userId: "me",
-          id: message.id,
-        }).then(response => {
-          ++messagesCounter;
-          let messageBody = response.result.payload.body.data;
-          if(messageBody) {
-            let encodedMessage = base64url.decode(messageBody);
-            messages.push(encodedMessage);
-            let reading;
-            if(encodedMessage.indexOf("##") > -1) {
-              let jsonString = encodedMessage.substring(encodedMessage.indexOf("##") + 2);
-              //console.log("jsonString", jsonString);
-              let jsonObj = JSON.parse(jsonString);
-              //console.log("jsonObj", jsonObj);
-              reading = this.convertDomovichekMessageObjToReading(jsonObj);
-              //console.log("reading", reading);
-              readings.push(reading);
-            } else {
-              // console.log("message do", encodedMessage);
-              reading = this.parseKlinkoffMessage(encodedMessage);
-              // console.log("message posle", reading);
-              readings.push(reading);
+      const BatchSize = 200;
+      let collectDataFromMessageBatch = (batchIteration = 0) => {
+        console.log(`collectDataFromMessageBatch(), iteration ${batchIteration} (${messagesList.length} items)`);
+        let messagesBatch = [...messagesList.slice(batchIteration * BatchSize, (batchIteration + 1) * BatchSize)];
+        messagesBatch.forEach(message => {
+          window.gapi.client.gmail.users.messages.get({
+            userId: "me",
+            id: message.id,
+          }).then(
+            response => {
+              ++messagesCounter;
+              let messageBody = response.result.payload.body.data;
+              if(messageBody) {
+                let encodedMessage = base64url.decode(messageBody);
+                let reading;
+                if(encodedMessage.indexOf("##") > -1) {
+                  let jsonString = encodedMessage.substring(encodedMessage.indexOf("##") + 2);
+                  let jsonObj = JSON.parse(jsonString);
+                  reading = this.convertDomovichekMessageObjToReading(jsonObj);
+                  readings.push(reading);
+                } else {
+                  reading = this.parseKlinkoffMessage(encodedMessage);
+                  readings.push(reading);
+                }
+              } else {
+                console.log("empty list", message, response.result);
+              }
+              if(messagesCounter === batchIteration * BatchSize + messagesBatch.length) {
+                if(messagesCounter < messagesList.length) {
+                  collectDataFromMessageBatch(++batchIteration);
+                } else {
+                  console.log("collectMessagesData() finish", readings);
+                  if(failedMessagesIds.length > 0) {
+                    // handleFailedMessages(failedMessagesIds);
+                    console.log("waiting 10s and try to retrieve failed messages");
+                    setTimeout(handleFailedMessages, 1000 * 10, failedMessagesIds);
+                  } else {
+                    this.exportToExcel(readings);
+                  }
+                }
+              }
+            },
+            err => {
+              ++messagesCounter;
+              console.log("Failed to retrive message", message, err);
+              failedMessagesIds.push(message.id);
+              if(messagesCounter === batchIteration * BatchSize + messagesBatch.length) {
+                if(messagesCounter < messagesList.length) {
+                  collectDataFromMessageBatch(++batchIteration);
+                } else {
+                  // handleFailedMessages(failedMessagesIds);
+                  console.log("waiting 10s and try to retrieve failed messages");
+                  setTimeout(handleFailedMessages, 1000 * 10, failedMessagesIds);
+                  // this.exportToExcel(readings);
+                }
+              }
             }
+          );
+        });
+      }
+
+      let handleFailedMessages = (failedMessagesIds) => {
+        const TryIterationsLimit = 3;
+        let tryIteration = 0;
+        let tryRetrieveFailedMessages = (failedMessagesIds) => {
+          console.log("tryRetrieveFailedMessages()", tryIteration, failedMessagesIds);
+          let messagesIdsList = [...failedMessagesIds];
+          let newFailedMessagesIds = [];
+          let messagesCounter = 0;
+          const BatchSize = 200;
+          let collectDataFromMessageBatch = (batchIteration = 0) => {
+            console.log(`collectDataFromMessageBatch(), iteration ${batchIteration} (${failedMessagesIds.length} items)`);
+            let messagesIdsBatch = [...messagesIdsList.slice(batchIteration * BatchSize, (batchIteration + 1) * BatchSize)];
+            messagesIdsBatch.forEach(messageId => {
+              window.gapi.client.gmail.users.messages.get({
+                userId: "me",
+                id: messageId,
+              }).then(
+                response => {
+                  ++messagesCounter;
+                  let messageBody = response.result.payload.body.data;
+                  if(messageBody) {
+                    let encodedMessage = base64url.decode(messageBody);
+                    let reading;
+                    if(encodedMessage.indexOf("##") > -1) {
+                      let jsonString = encodedMessage.substring(encodedMessage.indexOf("##") + 2);
+                      let jsonObj = JSON.parse(jsonString);
+                      reading = this.convertDomovichekMessageObjToReading(jsonObj);
+                      readings.push(reading);
+                    } else {
+                      reading = this.parseKlinkoffMessage(encodedMessage);
+                      readings.push(reading);
+                    }
+                  }
+                  if(messagesCounter === batchIteration * BatchSize + messagesIdsBatch.length) {
+                    if(messagesCounter < messagesIdsList.length) {
+                      collectDataFromMessageBatch(++batchIteration);
+                    } else {
+                      if(newFailedMessagesIds.length > 0) {
+                        if(++tryIteration < TryIterationsLimit) {
+                          console.log(`waiting 10s and try to retrieve failed messages, iteration ${tryIteration}`);
+                          setTimeout(tryRetrieveFailedMessages, 1000 * 10, newFailedMessagesIds);
+                          // tryRetrieveFailedMessages(newFailedMessagesIds);
+                        } else {
+                          window.alert("failed retrive messages, pls reload page and try again");
+                          // this.exportToExcel(readings);
+                        }
+                      } else {
+                        this.exportToExcel(readings);
+                      }
+                    }
+                  }
+                }, err => {
+                  ++messagesCounter;
+                  console.log("Failed to retrive message", messageId, err);
+                  newFailedMessagesIds.push(messageId);
+                  if(messagesCounter === batchIteration * BatchSize + messagesIdsBatch.length) {
+                    if(messagesCounter < messagesIdsList.length) {
+                      collectDataFromMessageBatch(++batchIteration);
+                    } else {
+                      if(++tryIteration < TryIterationsLimit) {
+                        console.log(`waiting 10s and try to retrieve failed messages, iteration ${tryIteration}`);
+                        setTimeout(tryRetrieveFailedMessages, 1000 * 10, newFailedMessagesIds);
+                        // tryRetrieveFailedMessages(newFailedMessagesIds);
+                      } else {
+                        window.alert("failed retrive messages, pls reload page and try again");
+                        // this.exportToExcel(readings);
+                      }
+                    }
+                  }
+                }
+              )
+            })
           }
-          if(messagesCounter === messagesList.length) {
-            // console.log("-- messages list ---", messages);
-            // console.log("-- readings list ---", readings);
-            this.exportToExcel(readings);
-          }
-        })
-      })
+
+          collectDataFromMessageBatch();
+        }
+
+        tryRetrieveFailedMessages(failedMessagesIds);
+      }
+
+      collectDataFromMessageBatch();
     }
 
     getMessagesList(collectMessagesData);
-
-    // console.log("date from:", this.state.dateFrom);
-    // console.log("date to", this.state.dateTo);
-    // console.log("q", `in:inbox after:${getUnixTime(this.state.dateFrom)} before:${getUnixTime(this.state.dateTo)}`);
-    // window.gapi.client.gmail.users.messages.list({
-    //   "userId": "me",
-    //   "includeSpamTrash": false,
-    //   "q": `{from:${CounterReadingsMails.join(" from:")}} after:${getUnixTime(this.state.dateFrom)} before:${getUnixTime(this.state.dateTo)}`, // it is also possible to use date format like YYYY/MM/DD
-    // }).then(response => {
-    //   //console.log("response", response);
-    //   let messages = response.result.messages;
-    //   let readings = [];
-    //   let messagesCounter = 0;
-    //   messages.forEach(messageIDs => {
-    //     let id = messageIDs.id;
-    //     //console.log("mess id", id);
-    //     window.gapi.client.gmail.users.messages.get({
-    //       "userId": "me",
-    //       "id": id
-    //     }).then(response => {
-    //       ++messagesCounter;
-    //       //console.log("mess response", response);
-    //       let messageBody = response.result.payload.body.data;
-    //       if(messageBody) {
-    //         messageBody = base64url.decode(messageBody);
-    //         //console.log("mess body", messageBody);
-    //         if(messageBody.indexOf("##") > -1) {
-    //           let jsonString = messageBody.substring(messageBody.indexOf("##") + 2);
-    //           //console.log("jsonString", jsonString);
-    //           let jsonObj = JSON.parse(jsonString);
-    //           //console.log("jsonObj", jsonObj);
-    //           let reading = this.convertDomovichekMessageObjToReading(jsonObj);
-    //           //console.log("reading", reading);
-    //           readings.push(reading);
-    //         }
-    //       }
-    //       if(messagesCounter === messages.length) {
-    //         this.exportToExcel(readings);
-    //       }
-    //     })
-    //   });
-    // })
   }
 
   parseKlinkoffMessage = (message) => {
@@ -249,64 +308,15 @@ export default class TableParser extends React.Component {
         if(key)
           reading[key] = valueArr[i];
       });
-      // console.log("arrays", headerArr, headerArr);
-      // console.log("reading1", reading);
-      // console.log("message1", message);
 
       return reading;
     }
 
     let tableLayout = message.substring(message.indexOf("<dl>"), message.indexOf("</dl>"));
-    // return parceTable(tableLayout);
     let reading = parceTable(tableLayout);
-    // console.log("reading2", reading);
-    // console.log("message2", message);
+
     return reading;
   }
-
-  // getMessages = () => {
-  //   // console.log("date from:", this.state.dateFrom);
-  //   // console.log("date to", this.state.dateTo);
-  //   // console.log("q", `in:inbox after:${getUnixTime(this.state.dateFrom)} before:${getUnixTime(this.state.dateTo)}`);
-  //   window.gapi.client.gmail.users.messages.list({
-  //     "userId": "me",
-  //     "includeSpamTrash": false,
-  //     "q": `{from:${CounterReadingsMails.join(" from:")}} after:${getUnixTime(this.state.dateFrom)} before:${getUnixTime(this.state.dateTo)}`, // it is also possible to use date format like YYYY/MM/DD
-  //   }).then(response => {
-  //     //console.log("response", response);
-  //     let messages = response.result.messages;
-  //     let readings = [];
-  //     let messagesCounter = 0;
-  //     messages.forEach(messageIDs => {
-  //       let id = messageIDs.id;
-  //       //console.log("mess id", id);
-  //       window.gapi.client.gmail.users.messages.get({
-  //         "userId": "me",
-  //         "id": id
-  //       }).then(response => {
-  //         ++messagesCounter;
-  //         //console.log("mess response", response);
-  //         let messageBody = response.result.payload.body.data;
-  //         if(messageBody) {
-  //           messageBody = base64url.decode(messageBody);
-  //           //console.log("mess body", messageBody);
-  //           if(messageBody.indexOf("##") > -1) {
-  //             let jsonString = messageBody.substring(messageBody.indexOf("##") + 2);
-  //             //console.log("jsonString", jsonString);
-  //             let jsonObj = JSON.parse(jsonString);
-  //             //console.log("jsonObj", jsonObj);
-  //             let reading = this.convertDomovichekMessageObjToReading(jsonObj);
-  //             //console.log("reading", reading);
-  //             readings.push(reading);
-  //           }
-  //         }
-  //         if(messagesCounter === messages.length) {
-  //           this.exportToExcel(readings);
-  //         }
-  //       })
-  //     });
-  //   })
-  // }
 
   convertDomovichekMessageObjToReading = (jsonObj) => {
     let reading = {
@@ -336,13 +346,9 @@ export default class TableParser extends React.Component {
   }
 
   exportToExcel = (data) => {
-    //console.log("exportToExcel()");
     let worksheet = XLSX.utils.json_to_sheet(data);
-    //console.log("worksheet", worksheet);
     let new_workbook = XLSX.utils.book_new();
-    //console.log("create workbook", new_workbook);
     XLSX.utils.book_append_sheet(new_workbook, worksheet, "sheet");
-    //console.log("add worksheet", new_workbook);
     XLSX.writeFile(new_workbook, `Counters_readings_${format(this.state.dateFrom, 'dd.MM.yyy')}-${format(this.state.dateTo, 'dd.MM.yyy')}.xlsx`);
   }
 
@@ -377,20 +383,6 @@ export default class TableParser extends React.Component {
   }
 
   render() {
-    // const { firebase } = this.props;
-    // const uiConfig = {
-    //   signInFlow: 'popup',
-    //   signInOptions: [{
-    //     provider: this.props.firebase.getGoogleProviderID(),
-    //     scopes: [
-    //       "https://www.googleapis.com/auth/gmail.readonly"
-    //     ]
-    //   }],
-    //   callbacks: {
-    //     signInSuccessWithAuthResult: () => false
-    //   }
-    // }
-
     return(
       <div className = "table-pareser">
         <div className = "table-parser-container">
