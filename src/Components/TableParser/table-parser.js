@@ -89,6 +89,7 @@ export default class TableParser extends React.Component {
   }
 
   getMessages = () => {
+    // console.log("getMessages() start");
     let query = {
       userId: "me",
       q: `{from:${CounterReadingsMails.join(" from:")}} after:${getUnixTime(this.state.dateFrom)} before:${getUnixTime(this.state.dateTo)}`, // it is also possible to use date format like YYYY/MM/DD
@@ -117,7 +118,7 @@ export default class TableParser extends React.Component {
       let readings = [];
       let failedMessagesIds = [];
       let messagesCounter = 0;
-      const BatchSize = 200;
+      const BatchSize = 100;
       let collectDataFromMessageBatch = (batchIteration = 0) => {
         console.log(`collectDataFromMessageBatch(), iteration ${batchIteration} (${messagesList.length} items)`);
         let messagesBatch = [...messagesList.slice(batchIteration * BatchSize, (batchIteration + 1) * BatchSize)];
@@ -130,10 +131,12 @@ export default class TableParser extends React.Component {
               ++messagesCounter;
               let messageBody = response.result.payload.body.data;
               if(messageBody) {
+                // console.log("OK list", message, response.result);
                 let encodedMessage = base64url.decode(messageBody);
                 let reading;
                 if(encodedMessage.indexOf("##") > -1) {
                   let jsonString = encodedMessage.substring(encodedMessage.indexOf("##") + 2);
+                  // console.log("encoded message", jsonString);
                   let jsonObj = JSON.parse(jsonString);
                   reading = this.convertDomovichekMessageObjToReading(jsonObj);
                   readings.push(reading);
@@ -142,7 +145,31 @@ export default class TableParser extends React.Component {
                   readings.push(reading);
                 }
               } else {
-                console.log("empty list", message, response.result);
+                console.log("empty body, try to check parts", message, response.result);
+                let messageParts = response.result.payload.parts[0];
+                if(messageParts) {
+                  let messageBody = messageParts.body.data;
+                  if(messageBody) {
+                    // console.log("OK list", message, response.result);
+                    let encodedMessage = base64url.decode(messageBody);
+                    let reading;
+                    if(encodedMessage.indexOf("##") > -1) {
+                      let jsonString = encodedMessage.substring(encodedMessage.indexOf("##") + 12);
+                      // console.log("encoded message", jsonString);
+                      let jsonObj = JSON.parse(jsonString);
+                      // console.log("encoded message", jsonString,  jsonObj);
+                      reading = this.convertNewDomovichekMessageObjToReading(jsonObj);
+                      readings.push(reading);
+                    } else {
+                      reading = this.parseNewKlinkoffMessage(encodedMessage);
+                      readings.push(reading);
+                    }
+                  } else {
+                    console.log("empty list", message, response.result);
+                  }
+                } else {
+                  console.log("empty list", message, response.result);
+                }
               }
               if(messagesCounter === batchIteration * BatchSize + messagesBatch.length) {
                 if(messagesCounter < messagesList.length) {
@@ -198,17 +225,58 @@ export default class TableParser extends React.Component {
                 response => {
                   ++messagesCounter;
                   let messageBody = response.result.payload.body.data;
+                  // if(messageBody) {
+                  //   let encodedMessage = base64url.decode(messageBody);
+                  //   let reading;
+                  //   if(encodedMessage.indexOf("##") > -1) {
+                  //     let jsonString = encodedMessage.substring(encodedMessage.indexOf("##") + 2);
+                  //     let jsonObj = JSON.parse(jsonString);
+                  //     reading = this.convertDomovichekMessageObjToReading(jsonObj);
+                  //     readings.push(reading);
+                  //   } else {
+                  //     reading = this.parseKlinkoffMessage(encodedMessage);
+                  //     readings.push(reading);
+                  //   }
+                  // }
                   if(messageBody) {
+                    // console.log("OK list", message, response.result);
                     let encodedMessage = base64url.decode(messageBody);
                     let reading;
                     if(encodedMessage.indexOf("##") > -1) {
                       let jsonString = encodedMessage.substring(encodedMessage.indexOf("##") + 2);
+                      // console.log("encoded message", jsonString);
                       let jsonObj = JSON.parse(jsonString);
                       reading = this.convertDomovichekMessageObjToReading(jsonObj);
                       readings.push(reading);
                     } else {
                       reading = this.parseKlinkoffMessage(encodedMessage);
                       readings.push(reading);
+                    }
+                  } else {
+                    console.log("empty body, try to check parts", messageId, response.result);
+                    let messageParts = response.result.payload.parts[0];
+                    if(messageParts) {
+                      let messageBody = messageParts.body.data;
+                      if(messageBody) {
+                        // console.log("OK list", message, response.result);
+                        let encodedMessage = base64url.decode(messageBody);
+                        let reading;
+                        if(encodedMessage.indexOf("##") > -1) {
+                          let jsonString = encodedMessage.substring(encodedMessage.indexOf("##") + 12);
+                          // console.log("encoded message", jsonString);
+                          let jsonObj = JSON.parse(jsonString);
+                          // console.log("encoded message", jsonString,  jsonObj);
+                          reading = this.convertNewDomovichekMessageObjToReading(jsonObj);
+                          readings.push(reading);
+                        } else {
+                          reading = this.parseNewKlinkoffMessage(encodedMessage);
+                          readings.push(reading);
+                        }
+                      } else {
+                        console.log("empty list", messageId, response.result);
+                      }
+                    } else {
+                      console.log("empty list", messageId, response.result);
                     }
                   }
                   if(messagesCounter === batchIteration * BatchSize + messagesIdsBatch.length) {
@@ -262,6 +330,46 @@ export default class TableParser extends React.Component {
     }
 
     getMessagesList(collectMessagesData);
+  }
+
+  parseNewKlinkoffMessage = (message) => {
+    const domovichekKlinkoffDictionary = {
+      "ваше ім'я": "Sender",
+      "особистий рахунок": "AccountID",
+      "дата заповнення форми": "Sent",
+      "за який місяць": "Month",
+      "номер телефону": "Phone",
+      "кухня (холодна)": "KitchenColdValue",
+      "кухня (гаряча)": "KitchenHotValue",
+      "туалет (холодна)": "ToiletColdValue",
+      "туалет (гаряча)": "ToiletHotValue",
+      "ванна (холодна)": "BathColdValue",
+      "ванна (гаряча)": "BathHotValue",
+      "полив": "Watering",
+      "додаткові дані": "Notes",
+      "адреса": "Address",
+      "e-mail": "Email"
+    };
+
+    let readingsObj = {};
+
+    const formData = message.split('\r\n\t* \r\n\r\n');
+    if (formData?.length > 4) {
+      const readingsFormData = formData.slice(1, -3);
+      readingsFormData.forEach(r => {
+        let readingKeyValueArray = r.split('\r\n\r\n');
+        if (readingKeyValueArray?.length === 2) {
+          let key = readingKeyValueArray[0].toLocaleLowerCase();
+          readingsObj[domovichekKlinkoffDictionary[key]] = readingKeyValueArray[1];
+        } else {
+          console.log('unexpected form row', message, formData, r);
+        };
+      });
+    } else {
+      console.log("failed parsing new Klinkoff message", message, formData);
+    };
+
+    return readingsObj;
   }
 
   parseKlinkoffMessage = (message) => {
@@ -341,6 +449,24 @@ export default class TableParser extends React.Component {
       Watering: jsonObj.countersNameValue.wateringColdCounter,
       HeatWater: jsonObj.countersNameValue.heatmeterColdCounter,
       HeatGKal: jsonObj.countersNameValue.heatmeterHotCounter,
+    }
+    return reading;
+  }
+
+  convertNewDomovichekMessageObjToReading = (jsonObj) => {
+    let reading = {
+      Sender: jsonObj.senderFio,
+      AccountID: jsonObj.senderAccount,
+      Sent: jsonObj.sendingDate,
+      // Month: jsonObj.month,
+      Phone: jsonObj.senderPhone,
+      KitchenColdValue: jsonObj.counters.kitchenCold,
+      KitchenHotValue: jsonObj.counters.kitchenHot,
+      BathColdValue: jsonObj.counters.bathCold,
+      BathHotValue: jsonObj.counters.bathHot,
+      Reverse: jsonObj.counters.sewage,
+      Watering: jsonObj.counters.watering,
+      Notes: jsonObj.counters.notes,
     }
     return reading;
   }
